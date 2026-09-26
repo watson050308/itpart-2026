@@ -285,6 +285,16 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
   object-fit: cover;
 }
 
+.reset-btn {
+  max-width: 320px;
+  margin: 14px auto 0;
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.85);
+  font-weight: 600;
+  font-size: 0.9rem;
+  box-shadow: none;
+}
+
 .gate {
   color: #fff;
   text-align: center;

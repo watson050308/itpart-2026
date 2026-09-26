@@ -51,12 +51,27 @@ const historyList = document.getElementById("history-list");
 let entries = [];
 let drawing = false;
 const history = [];
+const drawnNames = new Set();
+
+function normalizeName(name) {
+  return (name || "").trim();
+}
+
+function remainingEntries() {
+  return entries.filter((e) => !drawnNames.has(normalizeName(e.name)));
+}
+
+function updateCountPill() {
+  const remaining = remainingEntries().length;
+  countPill.textContent = `已上傳 ${entries.length} 張・尚未抽出 ${remaining} 位`;
+  drawBtn.disabled = remaining === 0;
+  drawBtn.textContent = remaining === 0 ? "所有人都已經抽完囉" : (history.length === 0 ? "🎲 開始抽獎" : "🎉 再抽一次");
+}
 
 function startListening() {
   onSnapshot(collection(db, "entries"), (snap) => {
     entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    countPill.textContent = `目前已上傳 ${entries.length} 張照片`;
-    drawBtn.disabled = entries.length === 0;
+    updateCountPill();
   });
 }
 
@@ -95,12 +110,13 @@ function addHistory(entry) {
   historyList.prepend(item);
 }
 
-function pickRandom() {
-  return entries[Math.floor(Math.random() * entries.length)];
+function pickRandomFrom(pool) {
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 async function draw() {
-  if (drawing || entries.length === 0) return;
+  const pool = remainingEntries();
+  if (drawing || pool.length === 0) return;
   drawing = true;
   drawBtn.disabled = true;
   drawBtn.textContent = "抽獎中…";
@@ -108,18 +124,28 @@ async function draw() {
   const totalTicks = 20;
   let delay = 70;
   for (let i = 0; i < totalTicks; i++) {
-    renderSpin(pickRandom());
+    renderSpin(pickRandomFrom(pool));
     await new Promise((r) => setTimeout(r, delay));
     delay += 12; // 逐漸變慢，製造停止感
   }
 
-  const winner = pickRandom();
+  const winner = pickRandomFrom(pool);
+  drawnNames.add(normalizeName(winner.name));
   renderResult(winner);
   addHistory(winner);
 
   drawing = false;
-  drawBtn.disabled = false;
-  drawBtn.textContent = "🎉 再抽一次";
+  updateCountPill();
 }
 
 drawBtn.addEventListener("click", draw);
+
+const resetBtn = document.getElementById("reset-btn");
+resetBtn.addEventListener("click", () => {
+  if (!confirm("確定要清空已抽出名單，讓所有人重新回到抽獎池嗎？")) return;
+  drawnNames.clear();
+  history.length = 0;
+  historyList.innerHTML = "";
+  renderStagePlaceholder();
+  updateCountPill();
+});
