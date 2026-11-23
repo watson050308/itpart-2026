@@ -26,13 +26,9 @@ const historyList = document.getElementById("history-list");
 const resetBtn = document.getElementById("reset-btn");
 
 let entries = [];
-let state = { seq: 0, winner: null, drawnNames: [], history: [] };
+let state = { seq: 0, winner: null, history: [] };
 let locked = false;
 let started = false;
-
-function normalizeName(name) {
-  return (name || "").trim();
-}
 
 function escapeHtml(str) {
   const div = document.createElement("div");
@@ -40,9 +36,9 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// 每張照片就是一張抽獎券：上傳越多張機率越高，中過獎的人之後仍可再被抽到
 function remainingEntries() {
-  const drawn = new Set(state.drawnNames || []);
-  return entries.filter((e) => !drawn.has(normalizeName(e.name)));
+  return entries;
 }
 
 function renderHistory() {
@@ -52,12 +48,12 @@ function renderHistory() {
 }
 
 function updateUI() {
-  const remaining = remainingEntries().length;
-  countPill.textContent = `已上傳 ${entries.length} 張・尚未抽出 ${remaining} 位`;
-  drawBtn.disabled = locked || remaining === 0;
+  const drawnCount = (state.history || []).length;
+  countPill.textContent = `已上傳 ${entries.length} 張・已抽出 ${drawnCount} 次`;
+  drawBtn.disabled = locked || entries.length === 0;
   drawBtn.textContent = locked
     ? "抽獎中…"
-    : remaining === 0 ? "所有人都已經抽完囉" : ((state.history || []).length === 0 ? "🎲 開始抽獎" : "🎉 再抽一次");
+    : entries.length === 0 ? "還沒有人上傳照片" : (drawnCount === 0 ? "🎲 開始抽獎" : "🎉 再抽一次");
 }
 
 // 把 Firestore 錯誤轉成現場看得懂的說明（原始錯誤碼附在最後，方便回報）
@@ -88,7 +84,6 @@ async function draw() {
     await setDoc(stateRef, {
       seq: (state.seq || 0) + 1,
       winner,
-      drawnNames: [...(state.drawnNames || []), normalizeName(winner.name)],
       history: [...(state.history || []), winner],
     });
   } catch (err) {
@@ -103,12 +98,11 @@ async function draw() {
 
 async function reset() {
   if (locked) return;
-  if (!confirm("確定要清空已抽出名單，讓所有人重新回到抽獎池嗎？")) return;
+  if (!confirm("確定要清空已抽出名單嗎？")) return;
   try {
     await setDoc(stateRef, {
       seq: (state.seq || 0) + 1,
       winner: null,
-      drawnNames: [],
       history: [],
     });
   } catch (err) {

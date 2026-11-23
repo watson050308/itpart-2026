@@ -56,10 +56,8 @@ function escapeHtml(str) {
 }
 
 function updateCountPill() {
-  const drawn = new Set(state?.drawnNames || []);
-  const names = new Set(entries.map((e) => (e.name || "").trim()).filter(Boolean));
-  const remaining = [...names].filter((n) => !drawn.has(n)).length;
-  countPill.textContent = `已上傳 ${entries.length} 張・尚未抽出 ${remaining} 位`;
+  const drawnCount = (state?.history || []).length;
+  countPill.textContent = `已上傳 ${entries.length} 張・已抽出 ${drawnCount} 次`;
 }
 
 function renderStagePlaceholder() {
@@ -131,7 +129,7 @@ function startListening() {
     if (!animating) updateCountPill();
   });
   onSnapshot(doc(db, "draw", STATE_DOC_ID), (snap) => {
-    state = snap.exists() ? snap.data() : { seq: 0, winner: null, drawnNames: [], history: [] };
+    state = snap.exists() ? snap.data() : { seq: 0, winner: null, history: [] };
     apply(state);
   });
 }
