@@ -56,8 +56,9 @@ function escapeHtml(str) {
 }
 
 function updateCountPill() {
-  const drawnCount = (state?.history || []).length;
-  countPill.textContent = `已上傳 ${entries.length} 張・已抽出 ${drawnCount} 次`;
+  const drawn = new Set((state?.history || []).map((w) => w.photoURL));
+  const remaining = entries.filter((e) => !drawn.has(e.photoURL)).length;
+  countPill.textContent = `已上傳 ${entries.length} 張・已抽出 ${drawn.size} 張・尚未抽出 ${remaining} 張`;
 }
 
 function renderStagePlaceholder() {

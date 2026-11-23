@@ -36,9 +36,11 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// 每張照片就是一張抽獎券：上傳越多張機率越高，中過獎的人之後仍可再被抽到
+// 每張照片就是一張抽獎券：上傳越多張機率越高。
+// 同一個人的其他照片之後仍可再中，但已中獎的「那張照片」不會再被抽到。
 function remainingEntries() {
-  return entries;
+  const drawn = new Set((state.history || []).map((w) => w.photoURL));
+  return entries.filter((e) => !drawn.has(e.photoURL));
 }
 
 function renderHistory() {
@@ -48,12 +50,13 @@ function renderHistory() {
 }
 
 function updateUI() {
+  const remaining = remainingEntries().length;
   const drawnCount = (state.history || []).length;
-  countPill.textContent = `已上傳 ${entries.length} 張・已抽出 ${drawnCount} 次`;
-  drawBtn.disabled = locked || entries.length === 0;
+  countPill.textContent = `已上傳 ${entries.length} 張・已抽出 ${drawnCount} 張・尚未抽出 ${remaining} 張`;
+  drawBtn.disabled = locked || remaining === 0;
   drawBtn.textContent = locked
     ? "抽獎中…"
-    : entries.length === 0 ? "還沒有人上傳照片" : (drawnCount === 0 ? "🎲 開始抽獎" : "🎉 再抽一次");
+    : remaining === 0 ? (entries.length === 0 ? "還沒有人上傳照片" : "所有照片都已經抽完囉") : (drawnCount === 0 ? "🎲 開始抽獎" : "🎉 再抽一次");
 }
 
 // 把 Firestore 錯誤轉成現場看得懂的說明（原始錯誤碼附在最後，方便回報）
