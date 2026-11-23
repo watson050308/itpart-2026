@@ -2,6 +2,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/fireba
 import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-storage.js";
 import { firebaseConfig } from "./firebase-config.js";
+import { ENTRIES_COLLECTION } from "./mode.js";
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -102,7 +103,7 @@ form.addEventListener("submit", async (e) => {
     const photoURL = await getDownloadURL(storageRef);
     progressBar.style.width = "90%";
 
-    await addDoc(collection(db, "entries"), {
+    await addDoc(collection(db, ENTRIES_COLLECTION), {
       name,
       message,
       photoURL,

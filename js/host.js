@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getFirestore, collection, onSnapshot, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
+import { ENTRIES_COLLECTION, STATE_DOC_ID } from "./mode.js";
 
 // 手機上的「抽獎遙控器」：按下抽獎後只負責決定誰中獎並寫進 draw/state，
 // 投影用的 admin.html 會即時收到並播放抽獎動畫。
@@ -12,7 +13,7 @@ const ANIMATION_MS = 4500;
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
-const stateRef = doc(db, "draw", "state");
+const stateRef = doc(db, "draw", STATE_DOC_ID);
 
 const gate = document.getElementById("gate");
 const main = document.getElementById("main");
@@ -119,7 +120,7 @@ async function reset() {
 function startListening() {
   if (started) return;
   started = true;
-  onSnapshot(collection(db, "entries"), (snap) => {
+  onSnapshot(collection(db, ENTRIES_COLLECTION), (snap) => {
     entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     updateUI();
   });

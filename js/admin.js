@@ -1,6 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getFirestore, collection, onSnapshot, doc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
+import { ENTRIES_COLLECTION, STATE_DOC_ID } from "./mode.js";
 
 // 這只是避免同事誤點進來的軟性門檔，不是真正的安全機制。
 // 密碼寫死在前端程式碼裡，任何看得到原始碼的人都能繞過，
@@ -125,11 +126,11 @@ function apply(next) {
 }
 
 function startListening() {
-  onSnapshot(collection(db, "entries"), (snap) => {
+  onSnapshot(collection(db, ENTRIES_COLLECTION), (snap) => {
     entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     if (!animating) updateCountPill();
   });
-  onSnapshot(doc(db, "draw", "state"), (snap) => {
+  onSnapshot(doc(db, "draw", STATE_DOC_ID), (snap) => {
     state = snap.exists() ? snap.data() : { seq: 0, winner: null, drawnNames: [], history: [] };
     apply(state);
   });

@@ -5,6 +5,13 @@
 - `host.html` — 抽獎遙控器（長官用手機開，按下抽獎後大螢幕會同步播放抽獎動畫）
 - 照片與資料存在 Firebase（Storage 存照片、Firestore 存名字/留言/照片網址）
 
+## 測試模式
+
+三個頁面的網址後面加上 `?mode=test`（例如 `admin.html?mode=test`）就會進入測試模式，
+畫面頂端有橘色「測試模式」橫幅，資料另存在 `entries_test` 與 `draw/state_test`，
+不會影響正式名單。手機、電腦、上傳頁要用同一個模式才會連動。
+正式活動時不加任何參數即可。測試資料可到 Firebase Console 的 Firestore 手動刪除。
+
 ## 1. 建立 Firebase 專案
 
 1. 開啟 https://console.firebase.google.com/ ，用 Google 帳號登入
@@ -31,8 +38,18 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // 手機遙控器與大螢幕同步抽獎狀態用
-    match /draw/state {
+    // 測試模式（網址加 ?mode=test）的上傳資料，規則與 entries 相同
+    match /entries_test/{entryId} {
+      allow read: if true;
+      allow create: if request.resource.data.name is string
+                    && request.resource.data.name.size() > 0
+                    && request.resource.data.name.size() < 50
+                    && request.resource.data.photoURL is string;
+      allow update, delete: if false;
+    }
+
+    // 手機遙控器與大螢幕同步抽獎狀態用（state 為正式、state_test 為測試）
+    match /draw/{docId} {
       allow read, write: if true;
     }
   }
