@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getFirestore, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getFirestore, collection, onSnapshot, doc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
 
 // 這只是避免同事誤點進來的軟性門檔，不是真正的安全機制。
@@ -35,50 +35,35 @@ gateInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") gateBtn.click();
 });
 
-if (sessionStorage.getItem("admin_ok") === "1") {
-  unlock();
-} else {
-  gate.style.display = "block";
-}
-
-// ---- Draw logic ----
+// ---- Display logic ----
+// 大螢幕只負責「顯示」：長官在 host.html（手機）按下抽獎後，
+// 抽中的結果會寫進 Firestore 的 draw/state，這裡收到新的一輪就播放抽獎動畫。
 
 const countPill = document.getElementById("count-pill");
 const stage = document.getElementById("stage");
-const drawBtn = document.getElementById("draw-btn");
 const historyList = document.getElementById("history-list");
 
 let entries = [];
-let drawing = false;
-const history = [];
-const drawnNames = new Set();
+let state = null;
+let lastSeq = null;
+let animating = false;
 
-function normalizeName(name) {
-  return (name || "").trim();
-}
-
-function remainingEntries() {
-  return entries.filter((e) => !drawnNames.has(normalizeName(e.name)));
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str || "";
+  return div.innerHTML;
 }
 
 function updateCountPill() {
-  const remaining = remainingEntries().length;
+  const drawn = new Set(state?.drawnNames || []);
+  const names = new Set(entries.map((e) => (e.name || "").trim()).filter(Boolean));
+  const remaining = [...names].filter((n) => !drawn.has(n)).length;
   countPill.textContent = `已上傳 ${entries.length} 張・尚未抽出 ${remaining} 位`;
-  drawBtn.disabled = remaining === 0;
-  drawBtn.textContent = remaining === 0 ? "所有人都已經抽完囉" : (history.length === 0 ? "🎲 開始抽獎" : "🎉 再抽一次");
-}
-
-function startListening() {
-  onSnapshot(collection(db, "entries"), (snap) => {
-    entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    updateCountPill();
-  });
 }
 
 function renderStagePlaceholder() {
-  stage.innerHTML = `<div class="stage-placeholder">按下方按鈕開始抽獎</div>`;
+  stage.innerHTML = `<div class="stage-placeholder">等待主持人抽獎</div>`;
 }
-renderStagePlaceholder();
 
 function renderSpin(entry) {
   stage.innerHTML = `
@@ -96,56 +81,64 @@ function renderResult(entry) {
   `;
 }
 
-function escapeHtml(str) {
-  const div = document.createElement("div");
-  div.textContent = str || "";
-  return div.innerHTML;
-}
-
-function addHistory(entry) {
-  history.unshift(entry);
-  const item = document.createElement("div");
-  item.className = "history-item";
-  item.innerHTML = `<img src="${entry.photoURL}" alt="" />${escapeHtml(entry.name)}`;
-  historyList.prepend(item);
+function renderHistory() {
+  historyList.innerHTML = (state?.history || []).slice().reverse().map((e) =>
+    `<div class="history-item"><img src="${e.photoURL}" alt="" />${escapeHtml(e.name)}</div>`
+  ).join("");
 }
 
 function pickRandomFrom(pool) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-async function draw() {
-  const pool = remainingEntries();
-  if (drawing || pool.length === 0) return;
-  drawing = true;
-  drawBtn.disabled = true;
-  drawBtn.textContent = "抽獎中…";
+async function animateTo(next) {
+  animating = true;
+  const pool = entries.length ? entries : [next.winner];
 
-  const totalTicks = 20;
   let delay = 70;
-  for (let i = 0; i < totalTicks; i++) {
+  for (let i = 0; i < 20; i++) {
     renderSpin(pickRandomFrom(pool));
     await new Promise((r) => setTimeout(r, delay));
     delay += 12; // 逐漸變慢，製造停止感
   }
 
-  const winner = pickRandomFrom(pool);
-  drawnNames.add(normalizeName(winner.name));
-  renderResult(winner);
-  addHistory(winner);
+  renderResult(next.winner);
+  animating = false;
+  // 動畫期間若又有新狀態進來，以最新的為準
+  if (state !== next) apply(state);
+  else { renderHistory(); updateCountPill(); }
+}
 
-  drawing = false;
+function apply(next) {
+  const first = lastSeq === null;
+  const changed = next.seq !== lastSeq;
+  lastSeq = next.seq;
+  if (animating) return; // animateTo 結束後會補上最新狀態
+  if (!first && changed && next.winner) {
+    animateTo(next);
+    return;
+  }
+  // 第一次載入、或主持人重設名單：不播動畫，直接顯示目前狀態
+  if (next.winner) renderResult(next.winner); else renderStagePlaceholder();
+  renderHistory();
   updateCountPill();
 }
 
-drawBtn.addEventListener("click", draw);
+function startListening() {
+  onSnapshot(collection(db, "entries"), (snap) => {
+    entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    if (!animating) updateCountPill();
+  });
+  onSnapshot(doc(db, "draw", "state"), (snap) => {
+    state = snap.exists() ? snap.data() : { seq: 0, winner: null, drawnNames: [], history: [] };
+    apply(state);
+  });
+}
 
-const resetBtn = document.getElementById("reset-btn");
-resetBtn.addEventListener("click", () => {
-  if (!confirm("確定要清空已抽出名單，讓所有人重新回到抽獎池嗎？")) return;
-  drawnNames.clear();
-  history.length = 0;
-  historyList.innerHTML = "";
-  renderStagePlaceholder();
-  updateCountPill();
-});
+renderStagePlaceholder();
+
+if (sessionStorage.getItem("admin_ok") === "1") {
+  unlock();
+} else {
+  gate.style.display = "block";
+}

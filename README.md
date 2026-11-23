@@ -1,7 +1,8 @@
 # 聚餐照片上傳 & 抽獎
 
 - `index.html` — 給同事上傳照片、名字、留言（手機用）
-- `admin.html` — 主持人抽獎畫面（投影在螢幕上）
+- `admin.html` — 抽獎大螢幕（投影在螢幕上，只顯示，不操作）
+- `host.html` — 抽獎遙控器（長官用手機開，按下抽獎後大螢幕會同步播放抽獎動畫）
 - 照片與資料存在 Firebase（Storage 存照片、Firestore 存名字/留言/照片網址）
 
 ## 1. 建立 Firebase 專案
@@ -28,6 +29,11 @@ service cloud.firestore {
                     && request.resource.data.name.size() < 50
                     && request.resource.data.photoURL is string;
       allow update, delete: if false;
+    }
+
+    // 手機遙控器與大螢幕同步抽獎狀態用
+    match /draw/state {
+      allow read, write: if true;
     }
   }
 }
